@@ -1,0 +1,263 @@
+#!/usr/bin/env python3.9
+
+import os, argparse
+
+os.system("clear")
+print("""
+                    .:odxxddl:,.
+                  'lxOkol::;;,,,'.
+               ,xXWKOkOKXXXX0xl;.
+             .dNMMMMMWXOdooooddxdc;.
+            ,OWMMWXkl;.           ..
+           cXMWKd:.
+         .oNMWk'                         ..
+        .dNMWx.                          'd:
+       .xWMWx.                           .xK;
+      .dWMWk.                             dW0,
+      :XMMK;   .                     .    dWMO
+      :XMM0'  .oo'....';:;,'.......'c;   .xMWk
+      .oNMX;  .dNNK0KXNWMk:'...'',,...   ,KMO'
+       .oNWd.  'OWMMMMMMMx,.            .dWO'
+         cKK;   ,0MMMMMMMx,.            cKk'
+          ,Ox'   ;0MMMMMMx,.          .:Od.
+           .okd,  ;KMMMMMx'.        .oOkc
+             :O0:  ,xKWMWd..       .xKx'     bcurl
+              .ckl.  .,:c'        ,xx,       by breachr
+                .::.            .;c,
+                
+""")
+
+class Bcolors:
+  OKGREEN = '\033[92m'
+  OKCYAN = '\033[96m'
+  ENDC = '\033[0m'
+  RED = '\033[91m'
+  OKBLUE = '\033[94m'
+  HEADER = '\033[95m'
+  FAIL = '\033[91m'
+  BOLD = '\033[1m'
+  UNDERLINE = '\033[4m'
+
+def p_green(msg):
+  print(F"{Bcolors.OKGREEN}# {msg} ################################################################################ {Bcolors.ENDC}")
+
+def p_cyan(msg):
+  print(F"{Bcolors.OKCYAN}# {msg}{Bcolors.ENDC}")
+
+def p_cmd(msg):
+  # TODO: Support multipart formdata > problem: tools not reading \n!
+  print(repr(msg)[1:-1].replace("\\'", "'")) #.replace("\\r", ""))
+
+### Base Arguments
+parser = argparse.ArgumentParser(description='Breach them.')
+# curl
+parser.add_argument('module', action='store', help='Get env from this target')
+parser.add_argument('-X', action='store', default=None, help='HTTP Method (GET/POST)')
+parser.add_argument('-H', action='append', default=None, help='HTTP Headers')
+parser.add_argument('-b', action='store', default=None, help='HTTP Cookies')
+parser.add_argument('--data-binary', action='store', default=None, help='HTTP POST Params')
+parser.add_argument('target', action='store', help='Target URL/IP')
+# bcurl filter
+parser.add_argument('filtr', action='store', default=False, nargs='*', help='Filter commands')
+# ! Ignore remainder args
+parser.add_argument('-i', action='store_true', default=None, help='ignored')
+parser.add_argument('-s', action='store_true', default=None, help='ignored')
+parser.add_argument('-k', action='store_true', default=None, help='ignored')
+a = parser.parse_args()
+a.agent = False
+
+if not a.filtr:
+  filtr = "DEFAULT"
+else:
+  filtr = a.filtr[0].lower()
+
+# ! Parse Header
+headfilt = [
+  "Host:",
+  "Accept",
+  "Content-Length",
+  "Origin",
+  "Connection: close",
+  "Upgrade-Insecure",
+]
+a.fullheadstr = ""
+a.fullheadlist = []
+if a.H:
+  for head in a.H:
+    if "User-Agent" in head:
+      a.agent = head[12:]
+    if "Host:" in head:
+      a.host = head[6:]
+    if "multipart" in head:
+      print("Multipart Formdata is currently not fully supported! Most CMDs wont work correctly!")
+      input("Press Enter to continue...")
+    filtred = False
+    for filt in headfilt:
+      if filt in head:
+        filtred = True
+        break
+    if not filtred:
+      a.fullheadstr += head + "\n"
+      a.fullheadlist.append(head)
+  a.fullheadstr = a.fullheadstr.strip()
+
+# ! Set Vars
+# Target
+target1 = F"-u '{a.target}'"
+target2 = F"--url '{a.target}'"
+target3 = F"'{a.target}'"
+target4 = "-d '" + a.target.split("/")[2] + "'"
+target5 = a.target.split("/")[2]
+
+# Cookie
+if a.b:
+  cookie1 = F"--cookie '{a.b}'"
+  cookie2 = F"-H 'Cookie: {a.b}'"
+  cookie3 = F"-c '{a.b}'"
+  
+  header2 = F"--headers 'Cookie: " + a.b + "\n" + a.fullheadstr + "'"
+  header3 = "-H 'Cookie: " + a.b + "' "
+  for head in a.fullheadlist:
+    header3 += F"-H '{head}' "
+else:
+  cookie1 = cookie2 = cookie3 = ""
+
+# Data
+if a.data_binary:
+  data1 = F"--data '{a.data_binary}'"
+  data2 = F"--data='{a.data_binary}'"
+else:
+  data1 = data2 = ""
+
+# Header
+if a.H:
+  header1 = F"--headers '{a.fullheadstr}'"
+
+else:
+  header1 = header2 = header3 = ""
+
+# User-Agent
+if a.agent:
+  agent1 = F"--user-agent='{a.agent}'"
+else:
+  agent1 = ""
+  
+# * ################################################
+# target1   =   -u 'X'
+# target2   =   --url 'X'
+# target3   =   'X'
+# target4   =   -d 'example.com'
+# target5   =   example.com
+# cookie1   =   --cookie 'X'
+# cookie2   =   -H 'Cookie: X'
+# cookie3   =   -c 'X'
+# data1     =   --data 'X'
+# data2     =   --data='X'
+# header1   =   --headers 'X'
+# header2   =   --headers 'Cookie: a.b\n a.fullheadstr
+# header3   =   -H 'Cookie: X' -H 'X' -H 'X' 
+# agent1    =   --user-agent='X'
+# * ################################################
+
+# ! ENV
+if filtr in "env all DEFAULT":
+  p_green("ENV Vars")
+  p_cmd(F"envi URL '{a.target}' && envi COOKIE '{a.b}' && envi HEADR '{a.fullheadstr}' && envi PDATA '{a.data_binary}' && envi METH '{a.X}'")
+
+# ! SQLMAP
+if filtr in "sqlmap injection all DEFAULT":
+  p_green("SQLMap")
+  p_cyan("Crawl")
+  p_cmd(F"sqlmap -afb --crawl=10 --forms --crawl-exclude='logout|password|forgot|login' --batch --level 3 --risk 3 {target1} {cookie1} {data1} {header1}")
+  p_cyan("Single")
+  p_cmd(F"sqlmap -afb --batch --level 3 --risk 3 --threads 3 {target1} {cookie1} {data1} {header1} -dbs")
+  p_cyan("Single + Tamper")
+  p_cmd(F"sqlmap -afb --batch --level 1 --risk 3 --tamper='apostrophemask,apostrophenullencode,appendnullbyte,base64encode,between,bluecoat,chardoubleencode,charencode,charunicodeencode,concat2concatws,equaltolike,greatest,halfversionedmorekeywords,ifnull2ifisnull,modsecurityversioned,modsecurityzeroversioned,multiplespaces,percentage,randomcase,randomcomments,space2comment,space2dash,space2hash,space2morehash,space2mssqlblank,space2mssqlhash,space2mysqlblank,space2mysqldash,space2plus,space2randomblank,sp_password,unionalltounion,unmagicquotes,versionedkeywords,versionedmorekeywords' {target1} {cookie1} {data1} {header1}")
+
+# ! COMMIX
+if filtr in "commix injection all DEFAULT":
+  p_green("Commix")
+  p_cmd(F"commix --batch --level 1 {target1} {cookie1} {data2} --random-agent")
+
+# ! FFUF
+if filtr in "ffuf injection subdomain all DEFAULT":
+  p_green("FFUF")
+  p_cyan("Basic Dirbust")
+  p_cmd(F"ffuf -r -c -w $wl/file_web.txt {target1} {data1} {header3} {cookie2} -o ffuf_basic.txt -e '/,php' -fs 9999")
+  p_cyan("Subdomain Dirbust")
+  p_cmd(F"ffuf -r -c -w $wl/subdomain.txt -u http://FUZZ.{target5} -o ffuf_subdomain.txt")
+  p_cyan("Dir Traversal: Lin")
+  p_cmd(F"ffuf -r -c -w $wl/inject_trav_lin.txt {target1} {data1} {header3} {cookie2} -o ffuf_trav.txt -e '/,php' -mr 'root'")
+  p_cyan("Dir Traversal: Win")
+  p_cmd(F"ffuf -r -c -w $wl/inject_trav_win.txt {target1} {data1} {header3} {cookie2} -o ffuf_trav.txt -e '/,php' -fs 9999")
+  p_cyan("Burp Proxy")
+  print("Burp Proxy: -x http://127.0.0.1:8080")
+
+# ! SUBFINDER
+if filtr in "subfinder subdomain all DEFAULT":
+  p_green("Subfinder")
+  p_cmd(F"subfinder {target4} -o subfinder.txt")
+  p_cmd(F"subfinder {target4} -silent| httpx -title -tech-detect -status-code")
+
+# ! GOBUSTER
+if filtr in "gobuster subdomain all DEFAULT":
+  p_green("Gobuster VHOST")
+  p_cmd(F"gobuster vhost -w $wl/subdomain.txt {target1} -o vhosts.txt")
+
+# ! XSSTRIKE
+if filtr in "xsstrike injection all DEFAULT":
+  p_green("XSStrike")
+  p_cmd(F"xsstrike --crawl {target1} {header2} {data1}")
+
+# ! CEWL
+if filtr in "cewl wordlist all DEFAULT":
+  p_green("CewL")
+  p_cmd(F"cewl -m 6 --allowed '^((?!logout).)*$' -w cewl.txt {cookie2} {target3}")
+
+# ! DOTDOTSLASH (BROKEN)
+if False or filtr in "dotdotslash traversal all DEFAULT":
+  # https://github.com/jcesarstef/dotdotslash/issues/6
+  p_green("dotdotslash")
+  p_cmd(F"dotdotslash {target2} {cookie1} --string TGTPARA")
+
+# ! Arjun
+if filtr in "arjun all DEFAULT":
+  p_green("Arjun (Use ParamMiner instead)")
+  p_cmd(F"arjun {target1} -m {a.X} {header2} --disable-redirects")
+  p_cmd(F"arjun {target1} -m {a.X} {header2}")
+
+# ! Default END ####################################################################################################
+
+# ! XSRFProbe
+if filtr in "xsrfprobe all":
+  p_green("XSRFProbe")
+  p_cyan("Crawl")
+  p_cmd(F"xsrfprobe {target1} {cookie3} --malicious")
+  p_cyan("Single")
+  p_cmd(F"xsrfprobe {target1} {cookie3} --crawl --malicious -E 'logout/, login/, signup/'")
+
+# ! Wafw00f
+if filtr in "wafw00f all":
+  # Wafwoof takes a headers.txt file only. not implemented yet
+  p_green("wafw00f")
+  p_cmd(F"wafw00f -a -vv {target3}")
+
+# ! ZAP
+if filtr in "zap all":
+  p_green("ZAP")
+  p_cmd(F"Use curl cmd + -x http://127.0.0.1:8081")
+
+# ! Nuclei
+if filtr in "nuclei all":
+  p_green("Nuclei")
+  p_cmd(F"bs nuclei {target1} -H '{a.fullheadstr}'")
+
+# ! Nikto
+if filtr in "nikto all":
+  p_green("Nikto")
+  p_cmd(F"nikto -host {a.target}")
+
+# ! SlowHTTP
+if filtr in "slowhttp all":
+  p_green("SlowHTTP")
+  p_cmd(F"slowhttptest -c 3000 -H -i 10 -r 200 -t {a.X} {target1} -x 24 -p 3")
